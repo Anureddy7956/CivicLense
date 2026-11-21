@@ -1,69 +1,252 @@
-import Image from "next/image";
+"use client";
 
-export default function Home() {
+import { useRef, useState } from "react";
+import Link from "next/link";
+import { compressImage, createTicket } from "@/lib/store";
+import type { Ticket, TriageResult } from "@/lib/types";
+import TicketCard from "@/components/TicketCard";
+import { Spinner } from "@/components/Badges";
+
+const SAMPLES = [
+  { label: "⚡ Fallen wire", text: "Electric wire fell on the road near Jayanagar 4th Block metro after the rain. Sparks are coming. Please send someone fast!", area: "Jayanagar 4th Block" },
+  { label: "🛣️ ಕನ್ನಡ – ರಸ್ತೆ ಗುಂಡಿ", text: "ಎಚ್‌ಎಸ್‌ಆರ್ ಲೇಔಟ್ ಸೆಕ್ಟರ್ 2ರಲ್ಲಿ ರಸ್ತೆ ಮಧ್ಯೆ ದೊಡ್ಡ ಗುಂಡಿ ಇದೆ, ರಾತ್ರಿ ಕಾಣಿಸುವುದಿಲ್ಲ.", area: "HSR Layout Sector 2" },
+  { label: "🚰 हिंदी – पानी", text: "व्हाइटफील्ड में मुख्य पाइपलाइन फट गई है, सड़क पर पानी बह रहा है और घरों में पानी नहीं आ रहा।", area: "Whitefield" },
+  { label: "🗑️ Garbage", text: "Garbage dumped next to the park on 8th Cross for a week now. Smells and attracts stray dogs.", area: "Malleshwaram" },
+];
+
+type Phase = { kind: "form" } | { kind: "done"; ticket: Ticket } | { kind: "invalid"; triage: TriageResult };
+
+export default function ReportPage() {
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [text, setText] = useState("");
+  const [area, setArea] = useState("");
+  const [photo, setPhoto] = useState<string | null>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [phase, setPhase] = useState<Phase>({ kind: "form" });
+
+  async function onPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Please choose an image file.");
+      return;
+    }
+    setError(null);
+    setPhotoBusy(true);
+    try {
+      setPhoto(await compressImage(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not read that photo.");
+      clearPhoto();
+    } finally {
+      setPhotoBusy(false);
+    }
+  }
+
+  function clearPhoto() {
+    setPhoto(null);
+    if (fileRef.current) fileRef.current.value = "";
+  }
+
+  function reset() {
+    setText("");
+    setArea("");
+    clearPhoto();
+    setError(null);
+    setPhase({ kind: "form" });
+  }
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!text.trim() && !photo) {
+      setError("Please describe the problem or add a photo so we know what to fix.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/triage", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, photo }),
+      });
+      const data: { triage?: TriageResult; error?: string } = await res.json().catch(() => ({}));
+      if (!res.ok || !data.triage) throw new Error(data.error || "Something went wrong. Please try again.");
+
+      if (!data.triage.is_valid_complaint) {
+        setPhase({ kind: "invalid", triage: data.triage });
+        return;
+      }
+      const ticket = createTicket({ text: text.trim(), photo, area: area.trim(), triage: data.triage });
+      setPhase({ kind: "done", ticket });
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch (err) {
+      setError(err instanceof Error && err.message !== "Failed to fetch" ? err.message : "Can't reach the server. Check your connection and try again.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  if (phase.kind === "done") {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <div className="mb-4 flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">✓</span>
+          <div>
+            <p className="font-semibold">Complaint registered as #{phase.ticket.id}</p>
+            <p className="text-sm">Sent to {phase.ticket.triage.department}. Keep this ticket ID for follow-up.</p>
+          </div>
+        </div>
+        <TicketCard ticket={phase.ticket} />
+        <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-center">
+          <button onClick={reset} className="rounded-lg border border-navy-200 bg-white px-5 py-2.5 font-medium text-navy-800 hover:bg-navy-50">
+            Report another issue
+          </button>
+          <Link href="/dashboard" className="rounded-lg bg-navy-900 px-5 py-2.5 text-center font-medium text-white hover:bg-navy-800">
+            View officer dashboard →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto max-w-2xl">
+      <section className="mb-6">
+        <h1 className="text-3xl font-bold tracking-tight text-navy-900 sm:text-4xl">Report a civic issue</h1>
+        <p className="mt-2 text-slate-600">
+          Write in <b>English, ಕನ್ನಡ, हिन्दी</b> or any language. Our AI reads it, rates how urgent it is and sends it to the right department:
+          BBMP, BWSSB or BESCOM.
+        </p>
+      </section>
+
+      {phase.kind === "invalid" && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <p className="font-semibold">This doesn’t look like a civic complaint.</p>
+          <p className="mt-1">
+            {phase.triage.english_summary} Please describe a problem in your area, like a pothole, garbage, water, power, trees or drainage.
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+      )}
+
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium text-slate-500">Try an example:</span>
+        {SAMPLES.map((s) => (
+          <button
+            key={s.label}
+            type="button"
+            disabled={loading}
+            onClick={() => {
+              setText(s.text);
+              setArea(s.area);
+              setPhase({ kind: "form" });
+            }}
+            className="rounded-full border border-slate-300 bg-white px-3 py-1 text-xs hover:border-navy-500 hover:text-navy-700"
           >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      <form onSubmit={onSubmit} className="relative space-y-5 rounded-2xl border bg-white p-5 shadow-sm sm:p-6">
+        <div>
+          <label htmlFor="text" className="block text-sm font-semibold text-navy-900">
+            What’s the problem?
+          </label>
+          <textarea
+            id="text"
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={5}
+            maxLength={3000}
+            placeholder="e.g. Big pothole outside Indiranagar metro station, two-wheelers are skidding…"
+            className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100"
+          />
         </div>
-      </main>
+
+        <div>
+          <label htmlFor="area" className="block text-sm font-semibold text-navy-900">
+            Location / area <span className="font-normal text-slate-400">(optional)</span>
+          </label>
+          <input
+            id="area"
+            value={area}
+            onChange={(e) => setArea(e.target.value)}
+            placeholder="e.g. Koramangala 5th Block, near Forum Mall"
+            className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100"
+          />
+        </div>
+
+        <div>
+          <span className="block text-sm font-semibold text-navy-900">
+            Photo <span className="font-normal text-slate-400">(optional)</span>
+          </span>
+          <input ref={fileRef} type="file" accept="image/*" onChange={onPhoto} className="hidden" id="photo" />
+          {photo ? (
+            <div className="mt-1.5 flex items-center gap-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={photo} alt="Photo preview" className="h-28 w-28 rounded-lg border object-cover" />
+              <div className="flex flex-col gap-1 text-sm">
+                <label htmlFor="photo" className="cursor-pointer font-medium text-navy-600 hover:underline">
+                  Change photo
+                </label>
+                <button type="button" onClick={clearPhoto} className="text-left text-red-600 hover:underline">
+                  Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <label
+              htmlFor="photo"
+              className="mt-1.5 flex cursor-pointer flex-col items-center gap-1 rounded-lg border-2 border-dashed border-slate-300 px-3 py-6 text-sm text-slate-500 hover:border-navy-500 hover:text-navy-700"
+            >
+              {photoBusy ? (
+                <>
+                  <Spinner /> Compressing photo…
+                </>
+              ) : (
+                <>
+                  <span className="text-2xl">📷</span>
+                  Take or upload a photo
+                </>
+              )}
+            </label>
+          )}
+        </div>
+
+        {error && (
+          <div role="alert" className="flex items-start gap-2 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800">
+            <span aria-hidden>⚠️</span>
+            <span>{error}</span>
+          </div>
+        )}
+
+        <button
+          type="submit"
+          disabled={loading || photoBusy}
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-navy-900 px-4 py-3 font-semibold text-white transition hover:bg-navy-800 disabled:cursor-not-allowed disabled:opacity-70"
+        >
+          {loading ? (
+            <>
+              <Spinner /> AI is analysing your complaint...
+            </>
+          ) : (
+            "Submit complaint"
+          )}
+        </button>
+
+        {loading && (
+          <div className="absolute inset-0 grid place-items-center rounded-2xl bg-white/85 backdrop-blur-[1px]" aria-live="polite">
+            <div className="flex flex-col items-center gap-3 text-navy-900">
+              <Spinner className="h-10 w-10" />
+              <p className="font-semibold">AI is analysing your complaint...</p>
+              <p className="text-xs text-slate-500">Classifying, rating severity and routing. This usually takes a few seconds.</p>
+            </div>
+          </div>
+        )}
+      </form>
     </div>
   );
 }
