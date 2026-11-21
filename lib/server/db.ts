@@ -11,6 +11,7 @@ import {
   type TimelineEntry,
   type TriageResult,
   type VerifyOutcome,
+  type VoiceNote,
 } from "../types";
 import { findDuplicate, nextId } from "../tickets";
 import { ACTION_RULES, PERSONAS, distanceMeters, type Action } from "../workflow";
@@ -21,6 +22,7 @@ const DATA_DIR =
   process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/civiclens" : path.join(process.cwd(), "data"));
 const TICKETS_FILE = path.join(DATA_DIR, "tickets.json");
 const PHOTO_DIR = path.join(DATA_DIR, "photos");
+const AUDIO_DIR = path.join(DATA_DIR, "audio");
 
 const MIME_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const EXT_MIME: Record<string, string> = Object.fromEntries(Object.entries(MIME_EXT).map(([m, e]) => [e, m]));
@@ -86,6 +88,31 @@ export function decodePhoto(dataUrl: string): Photo | null {
   return { mime: m[1], bytes: Buffer.from(m[2], "base64") };
 }
 
+// Browser recorders: Chrome/Android → webm, Firefox → ogg, Safari/iOS → mp4. Gemini accepts all of these.
+const AUDIO_EXT: Record<string, string> = { "audio/webm": "webm", "audio/ogg": "ogg", "audio/mp4": "m4a", "audio/aac": "aac", "audio/mpeg": "mp3", "audio/wav": "wav" };
+const AUDIO_EXT_MIME: Record<string, string> = Object.fromEntries(Object.entries(AUDIO_EXT).map(([m, e]) => [e, m]));
+
+/** Parses "data:audio/webm;codecs=opus;base64,..." into bytes (codec parameters are dropped). */
+export function decodeAudio(dataUrl: string): Photo | null {
+  const m = dataUrl.match(/^data:(audio\/[\w.+-]+)(?:;[^,;]+=[^,;]+)*;base64,([A-Za-z0-9+/=]+)$/);
+  if (!m) return null;
+  const mime = m[1] === "audio/x-m4a" ? "audio/mp4" : m[1];
+  if (!AUDIO_EXT[mime]) return null;
+  return { mime, bytes: Buffer.from(m[2], "base64") };
+}
+
+export async function readAudio(id: string): Promise<Photo | null> {
+  if (!/^CL-\d+$/.test(id)) return null;
+  for (const [ext, mime] of Object.entries(AUDIO_EXT_MIME)) {
+    try {
+      return { mime, bytes: await fs.readFile(path.join(AUDIO_DIR, `${id}.${ext}`)) };
+    } catch {
+      // try next extension
+    }
+  }
+  return null;
+}
+
 async function savePhoto(name: string, photo: Photo) {
   await fs.mkdir(PHOTO_DIR, { recursive: true });
   // Remove an older capture with a different extension so readPhoto can't serve a stale file.
@@ -112,6 +139,7 @@ export function createTicket(input: {
   lng: number | null;
   triage: TriageResult;
   photo: Photo | null;
+  voice: { audio: Photo; durationSec: number; language: string; englishTranslation: string } | null;
 }): Promise<Ticket> {
   return locked(async () => {
     const all = await readAll();
@@ -121,6 +149,17 @@ export function createTicket(input: {
       await savePhoto(id, input.photo);
       photoUrl = `/api/photos/${id}`;
     }
+    let voice: VoiceNote | null = null;
+    if (input.voice) {
+      await fs.mkdir(AUDIO_DIR, { recursive: true });
+      await fs.writeFile(path.join(AUDIO_DIR, `${id}.${AUDIO_EXT[input.voice.audio.mime]}`), input.voice.audio.bytes);
+      voice = {
+        audioUrl: `/api/audio/${id}`,
+        durationSec: input.voice.durationSec,
+        language: input.voice.language,
+        englishTranslation: input.voice.englishTranslation,
+      };
+    }
     const dup = findDuplicate(all, input.triage.category, input.area);
     const now = new Date().toISOString();
     const citizen = actorFor("citizen");
@@ -129,6 +168,7 @@ export function createTicket(input: {
       createdAt: now,
       text: input.text,
       photoUrl,
+      voice,
       area: input.area,
       lat: input.lat,
       lng: input.lng,
@@ -139,7 +179,7 @@ export function createTicket(input: {
       duplicateOf: dup?.id ?? null,
       verification: null,
       timeline: [
-        { status: "Submitted", by: citizen, at: now, note: `AI triage: ${input.triage.severity} · ${input.triage.category}.` },
+        { status: "Submitted", by: citizen, at: now, note: `${voice ? `Voice complaint (${voice.language}, ${voice.durationSec}s). ` : ""}AI triage: ${input.triage.severity} · ${input.triage.category}.` },
         {
           status: "Assigned",
           by: SYSTEM,

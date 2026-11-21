@@ -69,11 +69,20 @@ export interface Verification {
   verifiedAt?: string;
 }
 
+/** Voice complaint recorded by the citizen (audio file stored on the server). */
+export interface VoiceNote {
+  audioUrl: string;
+  durationSec: number;
+  language: string;
+  englishTranslation: string;
+}
+
 export interface Ticket {
   id: string; // "CL-1009"
   createdAt: string;
   text: string;
   photoUrl: string | null;
+  voice?: VoiceNote | null;
   area: string;
   lat: number | null;
   lng: number | null;

@@ -94,6 +94,17 @@ export default function TicketCard({ ticket: t, compact, children }: Props) {
           )}
         </div>
       )}
+      {t.voice && (
+        <div className="border-t border-slate-100 px-3.5 py-3 text-sm sm:px-5 dark:border-slate-800">
+          <p className="mb-1.5 text-slate-500 dark:text-slate-400">
+            🎙️ Voice complaint · {t.voice.language} · {t.voice.durationSec}s
+          </p>
+          <audio controls preload="none" src={t.voice.audioUrl} className="h-10 w-full" aria-label={`Voice complaint for ticket ${t.id}`} />
+          {t.voice.englishTranslation && !compact && (
+            <p className="mt-1.5 text-slate-500 dark:text-slate-400">English: {t.voice.englishTranslation}</p>
+          )}
+        </div>
+      )}
       {children && <div className="border-t border-slate-100 px-3.5 py-3 sm:px-5 dark:border-slate-800">{children}</div>}
 
       {zoom && t.photoUrl && (

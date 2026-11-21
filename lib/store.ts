@@ -21,6 +21,10 @@ export async function submitComplaint(input: {
   photo: string | null;
   lat: number | null;
   lng: number | null;
+  audio?: string | null;
+  audioDurationSec?: number;
+  voiceLanguage?: string;
+  voiceTranslation?: string;
 }): Promise<SubmitResult> {
   let res: Response;
   try {

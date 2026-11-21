@@ -1,5 +1,5 @@
 import { connection } from "next/server";
-import { createTicket, decodePhoto, listTickets } from "@/lib/server/db";
+import { createTicket, decodeAudio, decodePhoto, listTickets } from "@/lib/server/db";
 import { TriageError, triageComplaint } from "@/lib/server/triage";
 import { parseLatLng, sortTickets } from "@/lib/tickets";
 
@@ -14,7 +14,17 @@ export async function GET() {
 
 /** Citizen submits a complaint → AI triage → saved ticket. */
 export async function POST(request: Request) {
-  let body: { text?: unknown; area?: unknown; photo?: unknown; lat?: unknown; lng?: unknown };
+  let body: {
+    text?: unknown;
+    area?: unknown;
+    photo?: unknown;
+    lat?: unknown;
+    lng?: unknown;
+    audio?: unknown;
+    audioDurationSec?: unknown;
+    voiceLanguage?: unknown;
+    voiceTranslation?: unknown;
+  };
   try {
     body = await request.json();
   } catch {
@@ -37,6 +47,20 @@ export async function POST(request: Request) {
     return Response.json({ error: "Unsupported photo format. Please use JPG, PNG or WebP." }, { status: 415 });
   }
 
+  let voice = null;
+  if (typeof body.audio === "string" && body.audio) {
+    if (body.audio.length > 2_000_000) return Response.json({ error: "Voice clip is too long. Keep it under 60 seconds." }, { status: 413 });
+    const audio = decodeAudio(body.audio);
+    if (!audio) return Response.json({ error: "Unsupported audio format." }, { status: 415 });
+    const dur = Number(body.audioDurationSec);
+    voice = {
+      audio,
+      durationSec: Number.isFinite(dur) ? Math.max(1, Math.min(60, Math.round(dur))) : 0,
+      language: typeof body.voiceLanguage === "string" ? body.voiceLanguage.slice(0, 40) : "Unknown",
+      englishTranslation: typeof body.voiceTranslation === "string" ? body.voiceTranslation.slice(0, 3000) : "",
+    };
+  }
+
   try {
     const triage = await triageComplaint(text, photo);
     if (!triage.is_valid_complaint) {
@@ -45,7 +69,7 @@ export async function POST(request: Request) {
         { status: 422 },
       );
     }
-    const ticket = await createTicket({ text, area, lat, lng, triage, photo });
+    const ticket = await createTicket({ text, area, lat, lng, triage, photo, voice });
     return Response.json({ ticket }, { status: 201 });
   } catch (err) {
     if (err instanceof TriageError) return Response.json({ error: err.message }, { status: err.status });

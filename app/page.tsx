@@ -8,6 +8,7 @@ import TicketCard from "@/components/TicketCard";
 import { Spinner } from "@/components/Badges";
 import { StatusStepper } from "@/components/Timeline";
 import RoleGate from "@/components/RoleGate";
+import VoiceInput, { type VoiceResult } from "@/components/VoiceInput";
 
 const SAMPLES = [
   { label: "⚡ Fallen wire", text: "Electric wire fell on the road near Jayanagar 4th Block metro after the rain. Sparks are coming. Please send someone fast!", area: "Jayanagar 4th Block" },
@@ -36,6 +37,13 @@ function ReportForm() {
   const [error, setError] = useState<string | null>(null);
   const [phase, setPhase] = useState<Phase>({ kind: "form" });
   const [fix, setFix] = useState<Fix | null>(null);
+  const [voice, setVoice] = useState<VoiceResult | null>(null);
+
+  function onVoice(r: VoiceResult) {
+    setVoice(r);
+    setText((prev) => (prev.trim() ? `${prev.trim()} ${r.transcript}` : r.transcript));
+    setError(null);
+  }
   const [locating, setLocating] = useState(false);
   const [locError, setLocError] = useState<string | null>(null);
 
@@ -80,6 +88,7 @@ function ReportForm() {
     setArea("");
     clearPhoto();
     setFix(null);
+    setVoice(null);
     setError(null);
     setPhase({ kind: "form" });
   }
@@ -92,7 +101,17 @@ function ReportForm() {
     }
     setLoading(true);
     setError(null);
-    const result = await submitComplaint({ text: text.trim(), area: area.trim(), photo, lat: fix?.lat ?? null, lng: fix?.lng ?? null });
+    const result = await submitComplaint({
+      text: text.trim(),
+      area: area.trim(),
+      photo,
+      lat: fix?.lat ?? null,
+      lng: fix?.lng ?? null,
+      audio: voice?.audio ?? null,
+      audioDurationSec: voice?.durationSec,
+      voiceLanguage: voice?.language,
+      voiceTranslation: voice?.englishTranslation,
+    });
     setLoading(false);
     if (result.ok) {
       setPhase({ kind: "done", ticket: result.ticket });
@@ -174,6 +193,9 @@ function ReportForm() {
           <label htmlFor="text" className="block text-sm font-semibold text-navy-900 dark:text-slate-100">
             What’s the problem?
           </label>
+          <div className="mt-1.5 mb-2">
+            <VoiceInput onResult={onVoice} disabled={loading} />
+          </div>
           <textarea
             id="text"
             value={text}
@@ -183,6 +205,19 @@ function ReportForm() {
             placeholder="e.g. Big pothole outside Indiranagar metro station, two-wheelers are skidding…"
             className="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-base focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100 sm:text-sm dark:border-slate-700 dark:bg-slate-950 dark:placeholder:text-slate-500 dark:focus:ring-navy-700"
           />
+          {voice?.englishTranslation && (
+            <p className="mt-1.5 text-sm text-slate-500 dark:text-slate-400">
+              <span className="font-medium">English:</span> {voice.englishTranslation}
+            </p>
+          )}
+          {voice && (
+            <div className="mt-2 flex items-center gap-2">
+              <audio controls src={voice.audio} className="h-10 min-w-0 flex-1" aria-label="Your voice recording" />
+              <button type="button" onClick={() => setVoice(null)} className="shrink-0 px-2 py-2 text-xs font-medium text-red-600 hover:underline dark:text-red-400">
+                Remove clip
+              </button>
+            </div>
+          )}
         </div>
 
         <div>
