@@ -1,5 +1,5 @@
 import { CATEGORY_ICON, SEVERITY_STYLE } from "@/lib/departments";
-import type { Category, Severity, Status } from "@/lib/types";
+import { STATUS_LABEL, type Category, type Severity, type Status } from "@/lib/types";
 
 export function SeverityBadge({ severity }: { severity: Severity }) {
   return (
@@ -12,20 +12,34 @@ export function SeverityBadge({ severity }: { severity: Severity }) {
 
 export function CategoryBadge({ category }: { category: Category }) {
   return (
-    <span className="inline-flex items-center gap-1 rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-medium capitalize text-navy-700">
+    <span className="inline-flex items-center gap-1 rounded-full bg-navy-50 px-2.5 py-0.5 text-xs font-medium capitalize text-navy-700 dark:bg-navy-800 dark:text-navy-100">
       <span aria-hidden>{CATEGORY_ICON[category]}</span> {category}
     </span>
   );
 }
 
-const STATUS_STYLE: Record<Status, string> = {
-  Open: "bg-sky-100 text-sky-800",
-  "In Progress": "bg-violet-100 text-violet-800",
-  Resolved: "bg-emerald-100 text-emerald-800",
+export const STATUS_STYLE: Record<Status, string> = {
+  Submitted: "bg-slate-200 text-slate-800 dark:bg-slate-700 dark:text-slate-100",
+  Assigned: "bg-sky-100 text-sky-800 dark:bg-sky-900/60 dark:text-sky-200",
+  "Field Verified": "bg-indigo-100 text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-200",
+  Rejected: "bg-rose-100 text-rose-800 dark:bg-rose-900/60 dark:text-rose-200",
+  Approved: "bg-teal-100 text-teal-800 dark:bg-teal-900/60 dark:text-teal-200",
+  "In Progress": "bg-violet-100 text-violet-800 dark:bg-violet-900/60 dark:text-violet-200",
+  Resolved: "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-200",
 };
 
 export function StatusBadge({ status }: { status: Status }) {
-  return <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}>{status}</span>;
+  return (
+    <span className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}>{STATUS_LABEL[status]}</span>
+  );
+}
+
+export function SampleBadge() {
+  return (
+    <span className="rounded-full border border-dashed border-slate-400 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-400">
+      Sample
+    </span>
+  );
 }
 
 export function Spinner({ className = "h-5 w-5" }: { className?: string }) {

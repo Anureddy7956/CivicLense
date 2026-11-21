@@ -1,84 +1,107 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTickets } from "@/lib/useTickets";
-import { resetDemoData, setStatus, sortTickets } from "@/lib/store";
+import Link from "next/link";
+import { useTickets } from "@/lib/store";
 import { CATEGORY_ICON, DEPARTMENT_LABELS } from "@/lib/departments";
-import { CATEGORIES, SEVERITIES, STATUSES, type Category, type Severity, type Status } from "@/lib/types";
+import { CATEGORIES, SEVERITIES, STATUSES, STATUS_LABEL, type Category, type Severity, type Status, type Ticket } from "@/lib/types";
+import { isOpen } from "@/lib/workflow";
+import RoleGate from "@/components/RoleGate";
+import { TimelineList } from "@/components/Timeline";
 import TicketCard from "@/components/TicketCard";
 import { Spinner } from "@/components/Badges";
 
-export default function Dashboard() {
-  const tickets = useTickets();
+export default function DashboardPage() {
+  return (
+    <RoleGate role={["field_officer", "authority"]}>
+      <Dashboard />
+    </RoleGate>
+  );
+}
+
+function Dashboard() {
+  const { tickets, error, refresh } = useTickets();
+  const [sampleBusy, setSampleBusy] = useState(false);
   const [category, setCategory] = useState<Category | "">("");
   const [department, setDepartment] = useState("");
   const [severity, setSeverity] = useState<Severity | "">("");
   const [status, setStatusFilter] = useState<Status | "">("");
 
-  const visible = useMemo(() => {
-    if (!tickets) return [];
-    return sortTickets(
-      tickets.filter(
+  // Server already returns tickets sorted: Critical → Low, then newest first.
+  const visible = useMemo(
+    () =>
+      (tickets ?? []).filter(
         (t) =>
           (!category || t.triage.category === category) &&
           (!department || t.triage.department === department) &&
           (!severity || t.triage.severity === severity) &&
           (!status || t.status === status),
       ),
-    );
-  }, [tickets, category, department, severity, status]);
+    [tickets, category, department, severity, status],
+  );
 
-  if (!tickets) {
-    return (
-      <div className="grid place-items-center py-24 text-navy-700">
-        <Spinner className="h-8 w-8" />
-      </div>
-    );
-  }
-
-  const total = tickets.length;
-  const critical = tickets.filter((t) => t.triage.severity === "Critical" && t.status !== "Resolved").length;
-  const open = tickets.filter((t) => t.status === "Open").length;
   const filtersOn = Boolean(category || department || severity || status);
+  const total = tickets?.length ?? 0;
+  const critical = tickets?.filter((t) => t.triage.severity === "Critical" && isOpen(t.status)).length ?? 0;
+  const open = tickets?.filter((t) => isOpen(t.status)).length ?? 0;
+  const hasSamples = tickets?.some((t) => t.sample) ?? false;
+
+  async function samples(method: "POST" | "DELETE") {
+    setSampleBusy(true);
+    await fetch("/api/samples", { method }).catch(() => {});
+    await refresh();
+    setSampleBusy(false);
+  }
 
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight text-navy-900">Officer dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600">Sorted by severity (Critical → Low), then newest first.</p>
+          <h1 className="text-3xl font-bold tracking-tight text-navy-900 dark:text-white">Officer dashboard</h1>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sorted by severity (Critical → Low), then newest first.</p>
         </div>
-        <button
-          onClick={() => confirm("Replace all tickets with the 8 sample tickets?") && resetDemoData()}
-          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-        >
-          Reset demo data
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+            Live
+          </span>
+          <button
+            onClick={() => samples(hasSamples ? "DELETE" : "POST")}
+            disabled={sampleBusy}
+            className="min-h-9 rounded-full border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {sampleBusy ? "…" : hasSamples ? "Remove sample tickets" : "Load sample tickets"}
+          </button>
+        </div>
       </div>
 
+      {error && (
+        <div role="alert" className="mt-4 rounded-lg bg-red-50 px-3 py-2.5 text-sm text-red-800 dark:bg-red-950/60 dark:text-red-200">
+          ⚠️ {error}
+        </div>
+      )}
+
       {/* Summary counts */}
-      <div className="mt-6 grid grid-cols-3 gap-3">
-        <Stat label="Total tickets" value={total} className="bg-navy-900 text-white" sub="text-navy-200" />
+      <div className="mt-6 grid grid-cols-3 gap-2 sm:gap-3">
+        <Stat label="Total tickets" value={total} className="bg-navy-900 text-white dark:bg-navy-800" sub="text-navy-200" />
         <Stat
-          label="Critical (unresolved)"
+          label="Critical"
           value={critical}
-          className="cursor-pointer border border-red-200 bg-red-50 text-red-700 hover:ring-2 hover:ring-red-300"
-          sub="text-red-600"
+          className="border border-red-200 bg-red-50 text-red-700 hover:ring-2 hover:ring-red-300 dark:border-red-900 dark:bg-red-950/50 dark:text-red-300"
+          sub="text-red-600 dark:text-red-400"
           onClick={() => setSeverity(severity === "Critical" ? "" : "Critical")}
           active={severity === "Critical"}
         />
         <Stat
-          label="Open"
+          label="Open (not closed)"
           value={open}
-          className="cursor-pointer border border-sky-200 bg-sky-50 text-sky-800 hover:ring-2 hover:ring-sky-300"
-          sub="text-sky-700"
-          onClick={() => setStatusFilter(status === "Open" ? "" : "Open")}
-          active={status === "Open"}
+          className="border border-sky-200 bg-sky-50 text-sky-800 dark:border-sky-900 dark:bg-sky-950/50 dark:text-sky-300"
+          sub="text-sky-700 dark:text-sky-400"
         />
       </div>
 
       {/* Filters */}
-      <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl border bg-white p-3 sm:grid-cols-5 sm:items-end">
+      <div className="mt-6 grid grid-cols-2 gap-3 rounded-xl border border-slate-200 bg-white p-3 sm:grid-cols-5 sm:items-end dark:border-slate-800 dark:bg-slate-900">
         <Select label="Category" value={category} onChange={(v) => setCategory(v as Category | "")}>
           <option value="">All categories</option>
           {CATEGORIES.map((c) => (
@@ -102,7 +125,9 @@ export default function Dashboard() {
         <Select label="Status" value={status} onChange={(v) => setStatusFilter(v as Status | "")}>
           <option value="">All statuses</option>
           {STATUSES.map((s) => (
-            <option key={s}>{s}</option>
+            <option key={s} value={s}>
+              {STATUS_LABEL[s]}
+            </option>
           ))}
         </Select>
         <button
@@ -113,29 +138,46 @@ export default function Dashboard() {
             setSeverity("");
             setStatusFilter("");
           }}
-          className="col-span-2 rounded-md px-3 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 disabled:text-slate-300 disabled:hover:bg-transparent sm:col-span-1"
+          className="col-span-2 min-h-10 rounded-md px-3 py-2 text-sm font-medium text-navy-600 hover:bg-navy-50 disabled:text-slate-300 disabled:hover:bg-transparent sm:col-span-1 dark:text-navy-300 dark:hover:bg-slate-800 dark:disabled:text-slate-600"
         >
           Clear filters
         </button>
       </div>
 
-      <p className="mt-4 text-sm text-slate-500">
-        Showing {visible.length} of {total} tickets
-      </p>
-
-      <div className="mt-2 space-y-3">
-        {visible.length === 0 ? (
-          <div className="rounded-xl border border-dashed bg-white p-10 text-center text-slate-500">
-            {total === 0 ? (
-              <>No tickets yet. Click <b>Reset demo data</b> to load samples.</>
+      {tickets === null ? (
+        <div className="grid place-items-center py-24 text-navy-700 dark:text-navy-300">
+          <Spinner className="h-8 w-8" />
+        </div>
+      ) : (
+        <>
+          <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+            Showing {visible.length} of {total} tickets
+          </p>
+          <div className="mt-2 space-y-3">
+            {visible.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-slate-300 bg-white p-10 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                {total === 0 ? (
+                  <>
+                    <p className="text-3xl">📭</p>
+                    <p className="mt-2 font-medium text-slate-700 dark:text-slate-200">No complaints yet</p>
+                    <p className="mt-1 text-sm">
+                      New complaints appear here automatically. Use <b>Load sample tickets</b> for a demo, or{" "}
+                      <Link href="/" className="font-medium text-navy-600 underline dark:text-navy-300">
+                        report one
+                      </Link>
+                      .
+                    </p>
+                  </>
+                ) : (
+                  "No tickets match these filters."
+                )}
+              </div>
             ) : (
-              "No tickets match these filters."
+              visible.map((t) => <DashboardRow key={t.id} t={t} />)
             )}
           </div>
-        ) : (
-          visible.map((t) => <TicketCard key={t.id} ticket={t} onStatusChange={(s) => setStatus(t.id, s)} />)
-        )}
-      </div>
+        </>
+      )}
     </div>
   );
 }
@@ -146,9 +188,9 @@ function Stat(props: { label: string; value: number; className: string; sub: str
       type="button"
       onClick={props.onClick}
       disabled={!props.onClick}
-      className={`rounded-xl p-4 text-left transition ${props.className} ${props.active ? "ring-2 ring-navy-500" : ""}`}
+      className={`rounded-xl p-3 text-left transition sm:p-4 ${props.onClick ? "cursor-pointer" : ""} ${props.className} ${props.active ? "ring-2 ring-navy-500 dark:ring-navy-300" : ""}`}
     >
-      <p className="text-3xl font-bold sm:text-4xl">{props.value}</p>
+      <p className="text-2xl font-bold sm:text-4xl">{props.value}</p>
       <p className={`mt-1 text-xs font-medium sm:text-sm ${props.sub}`}>{props.label}</p>
     </button>
   );
@@ -156,15 +198,31 @@ function Stat(props: { label: string; value: number; className: string; sub: str
 
 function Select(props: { label: string; value: string; onChange: (v: string) => void; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-medium text-slate-500">
+    <label className="flex min-w-0 flex-col gap-1 text-xs font-medium text-slate-500 dark:text-slate-400">
       {props.label}
       <select
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        className="rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100"
+        className="min-h-10 w-full rounded-md border border-slate-300 bg-white px-2 py-2 text-sm text-slate-900 focus:border-navy-500 focus:outline-none focus:ring-2 focus:ring-navy-100 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100 dark:focus:ring-navy-700"
       >
         {props.children}
       </select>
     </label>
+  );
+}
+
+function DashboardRow({ t }: { t: Ticket }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <TicketCard ticket={t}>
+      <button onClick={() => setOpen(!open)} className="min-h-10 w-full text-left text-sm font-medium text-navy-700 dark:text-navy-200" aria-expanded={open}>
+        {open ? "▴ Hide" : "▾ Show"} timeline ({t.timeline.length} steps)
+      </button>
+      {open && (
+        <div className="mt-2">
+          <TimelineList ticket={t} />
+        </div>
+      )}
+    </TicketCard>
   );
 }

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
+<rect width="400" height="300" fill="#94a3b8"/>
+<rect y="170" width="400" height="130" fill="#64748b"/>
+<rect y="200" width="400" height="100" fill="#0ea5e9" opacity=".6"/><rect x="60" y="120" width="70" height="60" fill="#475569"/><rect x="250" y="100" width="90" height="80" fill="#334155"/><ellipse cx="200" cy="230" rx="60" ry="10" fill="#fff" opacity=".3"/><rect x="140" y="185" width="60" height="25" rx="6" fill="#dc2626"/>
+<rect x="10" y="10" rx="6" width="156" height="26" fill="rgba(11,31,58,.85)"/>
+<text x="20" y="28" font-family="sans-serif" font-size="14" fill="#fff" font-weight="bold">SAMPLE · Waterlogging</text>
+</svg>

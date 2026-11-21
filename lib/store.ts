@@ -1,95 +1,168 @@
 "use client";
 
-import type { Status, Ticket, TriageResult } from "./types";
-import { SEVERITY_RANK } from "./departments";
-import { seedTickets } from "./seed";
+import { useCallback, useEffect, useState } from "react";
+import type { Role, Ticket, TriageResult, VerifyOutcome } from "./types";
+import type { Action } from "./workflow";
 
-export const STORAGE_KEY = "civiclens.tickets.v2";
-export const UPDATE_EVENT = "civiclens:update";
+export type SubmitResult =
+  | { ok: true; ticket: Ticket }
+  | { ok: false; error: string; triage?: TriageResult };
 
-/** Reads tickets; on the very first visit, preloads the sample tickets. */
-export function loadTickets(): Ticket[] {
-  if (typeof window === "undefined") return [];
-  const raw = localStorage.getItem(STORAGE_KEY);
-  if (raw === null) {
-    const seeded = seedTickets();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(seeded));
-    return seeded;
-  }
+async function readJson(res: Response): Promise<Record<string, unknown>> {
+  return res.json().catch(() => ({}));
+}
+
+const networkError = "Can't reach the CivicLens server. Check that you're on the same Wi-Fi and try again.";
+
+/** Sends a complaint to the server, which triages it with AI and saves it. */
+export async function submitComplaint(input: {
+  text: string;
+  area: string;
+  photo: string | null;
+  lat: number | null;
+  lng: number | null;
+}): Promise<SubmitResult> {
+  let res: Response;
   try {
-    return JSON.parse(raw) as Ticket[];
+    res = await fetch("/api/tickets", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+  } catch {
+    return { ok: false, error: networkError };
+  }
+  const data = await readJson(res);
+  if (res.ok && data.ticket) {
+    rememberMyTicket((data.ticket as Ticket).id);
+    return { ok: true, ticket: data.ticket as Ticket };
+  }
+  return {
+    ok: false,
+    error: (data.error as string) || "Something went wrong. Please try again.",
+    triage: data.triage as TriageResult | undefined,
+  };
+}
+
+/**
+ * Live list of tickets from the shared server store. Polls every few seconds while the tab is
+ * visible, so complaints sent from a phone appear on the officer's screen on their own.
+ */
+export function useTickets(pollMs = 4000) {
+  const [tickets, setTickets] = useState<Ticket[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const refresh = useCallback(async () => {
+    try {
+      const res = await fetch("/api/tickets", { cache: "no-store" });
+      if (!res.ok) throw new Error();
+      const data = await readJson(res);
+      setTickets(data.tickets as Ticket[]);
+      setError(null);
+    } catch {
+      setError(networkError);
+    }
+  }, []);
+
+  useEffect(() => {
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const start = () => {
+      clearInterval(timer);
+      void refresh();
+      timer = setInterval(() => void refresh(), pollMs);
+    };
+    const onVisibility = () => (document.hidden ? clearInterval(timer) : start());
+    start();
+    document.addEventListener("visibilitychange", onVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onVisibility);
+    };
+  }, [refresh, pollMs]);
+
+  return { tickets, error, refresh };
+}
+
+export interface ActionInput {
+  action: Action;
+  role: Role;
+  note?: string;
+  outcome?: VerifyOutcome;
+  photo?: string | null;
+  lat?: number | null;
+  lng?: number | null;
+  accuracyM?: number | null;
+}
+
+/** Runs a workflow action on the server. Returns the updated ticket or a friendly error. */
+export async function runAction(id: string, input: ActionInput): Promise<{ ok: true; ticket: Ticket } | { ok: false; error: string }> {
+  try {
+    const res = await fetch(`/api/tickets/${encodeURIComponent(id)}/actions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    const data = await readJson(res);
+    if (res.ok && data.ticket) return { ok: true, ticket: data.ticket as Ticket };
+    return { ok: false, error: (data.error as string) || "Something went wrong. Please try again." };
+  } catch {
+    return { ok: false, error: networkError };
+  }
+}
+
+// ---------- "My complaints": ticket IDs this device submitted or chose to track ----------
+
+const MY_KEY = "civiclens.myTickets";
+export const MY_EVENT = "civiclens:my";
+
+export function getMyTicketIds(): string[] {
+  try {
+    return JSON.parse(localStorage.getItem(MY_KEY) || "[]");
   } catch {
     return [];
   }
 }
 
-function save(tickets: Ticket[]) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets));
-  } catch {
-    // localStorage is ~5MB. If full, drop photos from all but the 10 newest tickets and retry.
-    const newestFirst = [...tickets].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-    const keep = new Set(newestFirst.slice(0, 10).map((t) => t.id));
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tickets.map((t) => (keep.has(t.id) ? t : { ...t, photo: null }))));
-  }
-  window.dispatchEvent(new Event(UPDATE_EVENT));
+export function rememberMyTicket(id: string) {
+  const ids = getMyTicketIds().filter((x) => x !== id);
+  localStorage.setItem(MY_KEY, JSON.stringify([id, ...ids]));
+  window.dispatchEvent(new Event(MY_EVENT));
 }
 
-function nextId(tickets: Ticket[]): string {
-  const max = tickets.reduce((m, t) => Math.max(m, Number(t.id.replace(/\D/g, "")) || 0), 1000);
-  return `CL-${max + 1}`;
+export function forgetMyTicket(id: string) {
+  localStorage.setItem(MY_KEY, JSON.stringify(getMyTicketIds().filter((x) => x !== id)));
+  window.dispatchEvent(new Event(MY_EVENT));
 }
 
-const normArea = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+// ---------- GPS ----------
 
-/** Possible duplicate = an open (not resolved) ticket with the same category and same area. */
-export function findDuplicate(tickets: Ticket[], category: string, area: string): Ticket | null {
-  const a = normArea(area);
-  if (!a) return null;
-  const matches = tickets.filter((t) => {
-    if (t.status === "Resolved" || t.triage.category !== category) return false;
-    const b = normArea(t.area);
-    return b !== "" && (a === b || a.includes(b) || b.includes(a));
+export interface Fix {
+  lat: number;
+  lng: number;
+  accuracyM: number;
+}
+
+/** Current position. Needs HTTPS (or localhost) and the user's permission. */
+export function getLocation(timeoutMs = 15000): Promise<Fix> {
+  return new Promise((resolve, reject) => {
+    if (!("geolocation" in navigator)) return reject(new Error("This device can't share its location."));
+    if (!window.isSecureContext) return reject(new Error("Location needs the secure https:// link."));
+    navigator.geolocation.getCurrentPosition(
+      (p) => resolve({ lat: p.coords.latitude, lng: p.coords.longitude, accuracyM: Math.round(p.coords.accuracy) }),
+      (e) =>
+        reject(
+          new Error(
+            e.code === e.PERMISSION_DENIED
+              ? "Location permission was denied. Allow it in your browser settings."
+              : "Couldn't get your location. Move to an open area and try again.",
+          ),
+        ),
+      { enableHighAccuracy: true, timeout: timeoutMs, maximumAge: 30000 },
+    );
   });
-  // Point at the original report, not at another duplicate.
-  matches.sort((x, y) => x.createdAt.localeCompare(y.createdAt));
-  return matches.find((t) => !t.duplicateOf) ?? matches[0] ?? null;
 }
 
-export function createTicket(input: { text: string; photo: string | null; area: string; triage: TriageResult }): Ticket {
-  const tickets = loadTickets();
-  const dup = findDuplicate(tickets, input.triage.category, input.area);
-  const ticket: Ticket = {
-    id: nextId(tickets),
-    createdAt: new Date().toISOString(),
-    text: input.text,
-    photo: input.photo,
-    area: input.area,
-    triage: input.triage,
-    status: "Open",
-    duplicateOf: dup?.id ?? null,
-  };
-  save([ticket, ...tickets]);
-  return ticket;
-}
-
-export function setStatus(id: string, status: Status) {
-  save(loadTickets().map((t) => (t.id === id ? { ...t, status } : t)));
-}
-
-export function resetDemoData() {
-  save(seedTickets());
-}
-
-/** Critical > High > Medium > Low, then newest first. */
-export function sortTickets(tickets: Ticket[]): Ticket[] {
-  return [...tickets].sort(
-    (a, b) =>
-      SEVERITY_RANK[b.triage.severity] - SEVERITY_RANK[a.triage.severity] || b.createdAt.localeCompare(a.createdAt),
-  );
-}
-
-/** Resize + re-encode as JPEG until the payload is under maxBytes (default ~1MB). */
+/** Resize + re-encode as JPEG until the payload is under maxBytes (default ~0.9 MB). */
 export async function compressImage(file: File, maxBytes = 900_000): Promise<string> {
   const url = URL.createObjectURL(file);
   try {
