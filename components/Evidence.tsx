@@ -122,6 +122,7 @@ export function AccountabilityBox({ ticket }: { ticket: Ticket }) {
   if (v?.distanceM != null && v.distanceM > GPS_WARN_METERS) flags.push(`Officer was ${formatDistance(v.distanceM)} from the site`);
   if (v && v.distanceM == null) flags.push("No GPS comparison available");
   if (ticket.duplicateOf) flags.push(`Possible duplicate of #${ticket.duplicateOf}`);
+  if ((ticket.reportsCount ?? 1) > 1) flags.push(`Reported by ${ticket.reportsCount} citizens`);
   const sentBack = ticket.timeline.filter((e) => e.note.startsWith("Sent back")).length;
   if (sentBack) flags.push(`Sent back for re-verification ${sentBack}×`);
 
@@ -134,7 +135,7 @@ export function AccountabilityBox({ ticket }: { ticket: Ticket }) {
 
   return (
     <section className="rounded-xl border border-navy-200 bg-navy-50/60 p-3 text-sm dark:border-navy-800 dark:bg-navy-950/40">
-      <h4 className="font-semibold text-navy-900 dark:text-navy-100">🧾 Accountability</h4>
+      <h4 className="font-semibold text-navy-900 dark:text-navy-100">🧾 Verification record</h4>
       <dl className="mt-2 space-y-1">
         {rows.map(([k, val]) => (
           <div key={k} className="flex gap-2">

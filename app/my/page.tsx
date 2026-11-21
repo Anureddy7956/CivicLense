@@ -6,9 +6,11 @@ import { MY_EVENT, forgetMyTicket, getMyTicketIds, rememberMyTicket, useTickets 
 import { CATEGORY_ICON } from "@/lib/departments";
 import { STATUS_LABEL, type Ticket } from "@/lib/types";
 import RoleGate from "@/components/RoleGate";
-import { SampleBadge, SeverityBadge, Spinner, StatusBadge } from "@/components/Badges";
+import { SeverityBadge, Spinner, StatusBadge } from "@/components/Badges";
 import { StatusStepper, TimelineList } from "@/components/Timeline";
 import { timeAgo } from "@/components/TicketCard";
+import HowTo from "@/components/HowTo";
+import { WardAccountability } from "@/components/Accountability";
 
 let idsRaw = "";
 let idsCache: string[] = [];
@@ -63,9 +65,24 @@ function MyComplaints() {
   return (
     <div className="mx-auto max-w-2xl">
       <h1 className="text-3xl font-bold tracking-tight text-navy-900 dark:text-white">My complaints</h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Complaints sent from this phone, and any ticket you track by ID.</p>
+      <p className="mt-1 mb-4 text-sm text-slate-600 dark:text-slate-400">Complaints sent from this phone, and any ticket you track by ID.</p>
+      <HowTo
+        id="my"
+        steps={[
+          <>Complaints you send from this phone appear here automatically.</>,
+          <>
+            Reported from another phone? Type the <b>ticket ID</b> (e.g. CL-1001) and tap <b>Track</b>.
+          </>,
+          <>
+            The tracker shows each step: <b>Submitted → Field officer assigned → Verified on site → Approved → Work in progress → Resolved</b>. A red ✕ means it was rejected, with the reason.
+          </>,
+          <>
+            Tap <b>Show full timeline</b> to see who acted, when, and their notes.
+          </>,
+        ]}
+      />
 
-      <form onSubmit={onTrack} className="mt-4 flex gap-2">
+      <form onSubmit={onTrack} className="flex gap-2">
         <label htmlFor="track" className="sr-only">
           Ticket ID
         </label>
@@ -118,7 +135,6 @@ function MyTicket({ t }: { t: Ticket }) {
           <span className="font-mono text-xs font-semibold text-navy-700 dark:text-navy-300">#{t.id}</span>
           <SeverityBadge severity={t.triage.severity} />
           <StatusBadge status={t.status} />
-          {t.sample && <SampleBadge />}
         </div>
         <h2 className="mt-1.5 font-semibold text-navy-900 dark:text-white">
           {CATEGORY_ICON[t.triage.category]} {t.triage.title}
@@ -126,9 +142,18 @@ function MyTicket({ t }: { t: Ticket }) {
         <p className="text-xs text-slate-500 dark:text-slate-400">
           {t.area || "No area"} · {timeAgo(t.createdAt)} · {t.triage.department}
         </p>
+        {t.reportsCount > 1 && (
+          <p className="mt-1 text-xs font-semibold text-fuchsia-700 dark:text-fuchsia-300">
+            👥 Reported by {t.reportsCount} citizens{t.reportsCount >= 3 ? " · 🔥 priority boosted" : ""}
+          </p>
+        )}
 
         <div className="mt-4">
           <StatusStepper ticket={t} />
+        </div>
+
+        <div className="mt-4">
+          <WardAccountability ticket={t} />
         </div>
 
         {last && (

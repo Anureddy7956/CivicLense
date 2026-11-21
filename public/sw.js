@@ -1,8 +1,8 @@
 // CivicLens service worker: basic offline shell.
 // - Pages: network first, cached copy when offline, offline page as last resort.
-// - Static assets (/_next/static, icons, samples): cache first (they're content-hashed or stable).
+// - Static assets (/_next/static, icons): cache first (they're content-hashed or stable).
 // - API calls: always network (live data must never be stale), with a JSON error when offline.
-const VERSION = "civiclens-v2";
+const VERSION = "civiclens-v3";
 const SHELL = ["/", "/my", "/field", "/authority", "/dashboard", "/offline.html", "/manifest.json", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -57,7 +57,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/") || url.pathname.startsWith("/samples/")) {
+  if (url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icons/")) {
     event.respondWith(
       caches.match(req).then(
         (hit) =>

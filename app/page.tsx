@@ -3,21 +3,20 @@
 import { useRef, useState } from "react";
 import Link from "next/link";
 import { compressImage, getLocation, submitComplaint, type Fix } from "@/lib/store";
+import { mapsUrl } from "@/lib/workflow";
 import type { Ticket, TriageResult } from "@/lib/types";
 import TicketCard from "@/components/TicketCard";
 import { Spinner } from "@/components/Badges";
 import { StatusStepper } from "@/components/Timeline";
 import RoleGate from "@/components/RoleGate";
 import VoiceInput, { type VoiceResult } from "@/components/VoiceInput";
+import HowTo from "@/components/HowTo";
 
-const SAMPLES = [
-  { label: "⚡ Fallen wire", text: "Electric wire fell on the road near Jayanagar 4th Block metro after the rain. Sparks are coming. Please send someone fast!", area: "Jayanagar 4th Block" },
-  { label: "🛣️ ಕನ್ನಡ – ರಸ್ತೆ ಗುಂಡಿ", text: "ಎಚ್‌ಎಸ್‌ಆರ್ ಲೇಔಟ್ ಸೆಕ್ಟರ್ 2ರಲ್ಲಿ ರಸ್ತೆ ಮಧ್ಯೆ ದೊಡ್ಡ ಗುಂಡಿ ಇದೆ, ರಾತ್ರಿ ಕಾಣಿಸುವುದಿಲ್ಲ.", area: "HSR Layout Sector 2" },
-  { label: "🚰 हिंदी – पानी", text: "व्हाइटफील्ड में मुख्य पाइपलाइन फट गई है, सड़क पर पानी बह रहा है और घरों में पानी नहीं आ रहा।", area: "Whitefield" },
-  { label: "🗑️ Garbage", text: "Garbage dumped next to the park on 8th Cross for a week now. Smells and attracts stray dogs.", area: "Malleshwaram" },
-];
 
-type Phase = { kind: "form" } | { kind: "done"; ticket: Ticket } | { kind: "invalid"; triage: TriageResult };
+type Phase =
+  | { kind: "form" }
+  | { kind: "done"; ticket: Ticket; merged: boolean; triageMs: number | null }
+  | { kind: "invalid"; triage: TriageResult };
 
 export default function ReportPage() {
   return (
@@ -114,7 +113,7 @@ function ReportForm() {
     });
     setLoading(false);
     if (result.ok) {
-      setPhase({ kind: "done", ticket: result.ticket });
+      setPhase({ kind: "done", ticket: result.ticket, merged: result.merged, triageMs: result.triageMs });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } else if (result.triage && !result.triage.is_valid_complaint) {
       setPhase({ kind: "invalid", triage: result.triage });
@@ -126,13 +125,29 @@ function ReportForm() {
   if (phase.kind === "done") {
     return (
       <div className="mx-auto max-w-2xl">
-        <div className="mb-4 flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">✓</span>
-          <div>
-            <p className="font-semibold">Complaint registered as #{phase.ticket.id}</p>
-            <p className="text-sm">Sent to {phase.ticket.triage.department}. Keep this ticket ID for follow-up.</p>
+        {phase.merged ? (
+          <div className="mb-4 flex items-center gap-3 rounded-xl bg-fuchsia-50 p-4 text-fuchsia-900 dark:bg-fuchsia-950/50 dark:text-fuchsia-100">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-fuchsia-600 text-white">👥</span>
+            <div>
+              <p className="font-semibold">Already reported as #{phase.ticket.id}. Your report was added</p>
+              <p className="text-sm">
+                Now reported by <b>{phase.ticket.reportsCount} citizens</b>
+                {phase.ticket.reportsCount >= 3 ? ", so its priority has been boosted" : ""}. Track #{phase.ticket.id} for updates.
+              </p>
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-4 flex items-center gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/60 dark:text-emerald-100">
+            <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-emerald-600 text-white">✓</span>
+            <div>
+              <p className="font-semibold">Complaint registered as #{phase.ticket.id}</p>
+              <p className="text-sm">Sent to {phase.ticket.triage.department}. Keep this ticket ID for follow-up.</p>
+            </div>
+          </div>
+        )}
+        {phase.triageMs != null && (
+          <p className="-mt-2 mb-3 text-center text-xs text-slate-500 dark:text-slate-400">⚡ Triaged by AI in {(phase.triageMs / 1000).toFixed(1)} seconds</p>
+        )}
         <TicketCard ticket={phase.ticket} />
         <section className="mt-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
           <h2 className="mb-3 text-sm font-semibold text-navy-900 dark:text-white">Where your complaint is</h2>
@@ -169,24 +184,29 @@ function ReportForm() {
         </div>
       )}
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium text-slate-500 dark:text-slate-400">Try an example:</span>
-        {SAMPLES.map((s) => (
-          <button
-            key={s.label}
-            type="button"
-            disabled={loading}
-            onClick={() => {
-              setText(s.text);
-              setArea(s.area);
-              setPhase({ kind: "form" });
-            }}
-            className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs hover:border-navy-500 hover:text-navy-700 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-navy-400 dark:hover:text-navy-200"
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      <HowTo
+        id="report"
+        steps={[
+          <>
+            <b>Describe the problem.</b> Type it, or tap the 🎙️ mic and speak in English, ಕನ್ನಡ, हिन्दी, தமிழ், తెలుగు, മലയാളം or मराठी.
+          </>,
+          <>
+            <b>Add a photo</b> 📷 and tap <b>Use my location</b> 📍. This helps the officer find the exact spot.
+          </>,
+          <>
+            Tap <b>Submit complaint</b>. AI sorts it, rates how urgent it is and sends it to BBMP, BWSSB or BESCOM.
+          </>,
+          <>
+            Note your <b>ticket ID</b> and follow progress in <b>My Complaints</b>.
+          </>,
+        ]}
+        tip={
+          <>
+            📱 Install it like an app: browser menu → <b>Add to Home Screen</b>. Officials: switch your role at the top right.
+          </>
+        }
+      />
+
 
       <form onSubmit={onSubmit} className="relative space-y-5 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-6 dark:border-slate-800 dark:bg-slate-900">
         <div>
@@ -239,8 +259,12 @@ function ReportForm() {
           </span>
           {fix ? (
             <div className="mt-1.5 flex items-center justify-between gap-2 rounded-lg bg-emerald-50 px-3 py-2.5 text-sm text-emerald-900 dark:bg-emerald-950/50 dark:text-emerald-100">
-              <span>
+              <span className="min-w-0">
                 📍 {fix.lat.toFixed(5)}, {fix.lng.toFixed(5)} <span className="text-xs opacity-75">(±{fix.accuracyM} m)</span>
+                <br />
+                <a href={mapsUrl({ lat: fix.lat, lng: fix.lng, area })} target="_blank" rel="noopener noreferrer" className="text-xs font-medium underline">
+                  🗺️ View on Google Maps ↗
+                </a>
               </span>
               <button type="button" onClick={() => setFix(null)} className="py-1 text-xs font-medium underline">
                 Remove
@@ -258,7 +282,7 @@ function ReportForm() {
                   <Spinner /> Getting your location…
                 </>
               ) : (
-                "📍 Add my current location"
+                "📍 Use my location"
               )}
             </button>
           )}

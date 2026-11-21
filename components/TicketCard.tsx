@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { CATEGORY_ICON, SEVERITY_BORDER } from "@/lib/departments";
 import type { Ticket } from "@/lib/types";
-import { CategoryBadge, SampleBadge, SeverityBadge, StatusBadge } from "./Badges";
+import { CategoryBadge, SeverityBadge, StatusBadge } from "./Badges";
+import { WardAccountability } from "./Accountability";
+import { isBoosted } from "@/lib/tickets";
+import { mapsUrl } from "@/lib/workflow";
 
 export function timeAgo(iso: string) {
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 60000));
@@ -22,7 +25,9 @@ interface Props {
 }
 
 export default function TicketCard({ ticket: t, compact, children }: Props) {
-  const [zoom, setZoom] = useState(false);
+  const [zoom, setZoom] = useState<string | null>(null);
+  const [showReports, setShowReports] = useState(false);
+  const count = t.reportsCount ?? 1;
   const isEnglish = /^english$/i.test(t.triage.detected_language);
   const closed = t.status === "Resolved" || t.status === "Rejected";
 
@@ -34,7 +39,7 @@ export default function TicketCard({ ticket: t, compact, children }: Props) {
         {/* Photo thumbnail or category placeholder */}
         <button
           type="button"
-          onClick={() => t.photoUrl && setZoom(true)}
+          onClick={() => t.photoUrl && setZoom(t.photoUrl)}
           className={`grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-lg bg-navy-50 text-2xl sm:h-24 sm:w-24 sm:text-3xl dark:bg-navy-900 ${t.photoUrl ? "cursor-zoom-in" : "cursor-default"}`}
           aria-label={t.photoUrl ? "Enlarge photo" : "No photo"}
         >
@@ -52,7 +57,19 @@ export default function TicketCard({ ticket: t, compact, children }: Props) {
             <SeverityBadge severity={t.triage.severity} />
             <CategoryBadge category={t.triage.category} />
             <StatusBadge status={t.status} />
-            {t.sample && <SampleBadge />}
+            {count > 1 && (
+              <span className="rounded-full bg-fuchsia-100 px-2.5 py-0.5 text-xs font-semibold text-fuchsia-800 dark:bg-fuchsia-900/50 dark:text-fuchsia-200">
+                👥 Reported by {count} citizens
+              </span>
+            )}
+            {isBoosted(t) && (
+              <span
+                title="3 or more citizens reported this, so it is ranked one level higher"
+                className="rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-900/50 dark:text-red-200"
+              >
+                🔥 Priority boosted
+              </span>
+            )}
             {t.duplicateOf && (
               <span className="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/50 dark:text-amber-200">
                 Possible duplicate of #{t.duplicateOf}
@@ -67,9 +84,25 @@ export default function TicketCard({ ticket: t, compact, children }: Props) {
 
           <dl className="mt-3 grid gap-x-6 gap-y-1.5 text-sm sm:grid-cols-2">
             <Field label="Department" value={t.triage.department} strong />
-            <Field label="Area" value={t.area || "Not specified"} />
+            <Field
+              label="Area"
+              value={
+                <>
+                  {t.area || "Not specified"}
+                  {(t.lat != null || t.area) && (
+                    <>
+                      {" · "}
+                      <a href={mapsUrl(t)} target="_blank" rel="noopener noreferrer" className="whitespace-nowrap text-navy-600 underline dark:text-navy-300">
+                        🗺️ Map
+                      </a>
+                    </>
+                  )}
+                </>
+              }
+            />
             <Field label="Language" value={t.triage.detected_language} />
             <Field label="Reported" value={timeAgo(t.createdAt)} title={new Date(t.createdAt).toLocaleString("en-IN")} />
+            {t.triageMs != null && <Field label="AI triage" value={`⚡ Triaged in ${(t.triageMs / 1000).toFixed(1)} seconds`} />}
           </dl>
         </div>
       </div>
@@ -105,24 +138,56 @@ export default function TicketCard({ ticket: t, compact, children }: Props) {
           )}
         </div>
       )}
+      {t.reports?.length > 0 && (
+        <div className="border-t border-slate-100 px-3.5 py-2 text-sm sm:px-5 dark:border-slate-800">
+          <button type="button" onClick={() => setShowReports(!showReports)} className="min-h-9 font-medium text-navy-700 dark:text-navy-200" aria-expanded={showReports}>
+            {showReports ? "▴ Hide" : "▾ Show"} {t.reports.length} more report{t.reports.length > 1 ? "s" : ""} of this issue
+          </button>
+          {showReports && (
+            <ul className="mt-1 space-y-2">
+              {t.reports.map((r, i) => (
+                <li key={i} className="flex gap-2 rounded-lg bg-slate-50 p-2 dark:bg-slate-800/60">
+                  {r.photoUrl && (
+                    <button type="button" onClick={() => setZoom(r.photoUrl)} className="shrink-0" aria-label="Enlarge photo">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={r.photoUrl} alt="" loading="lazy" className="h-12 w-12 rounded object-cover" />
+                    </button>
+                  )}
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
+                      {timeAgo(r.at)}
+                      {r.area ? ` · ${r.area}` : ""}
+                    </p>
+                    {r.text && <p className="break-words">{r.text}</p>}
+                    {r.audioUrl && <audio controls preload="none" src={r.audioUrl} className="mt-1 h-9 w-full" aria-label="Voice report" />}
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+      <div className="border-t border-slate-100 px-3.5 py-3 sm:px-5 dark:border-slate-800">
+        <WardAccountability ticket={t} />
+      </div>
       {children && <div className="border-t border-slate-100 px-3.5 py-3 sm:px-5 dark:border-slate-800">{children}</div>}
 
-      {zoom && t.photoUrl && (
+      {zoom && (
         <div
           role="dialog"
           aria-label="Photo"
-          onClick={() => setZoom(false)}
+          onClick={() => setZoom(null)}
           className="fixed inset-0 z-50 grid cursor-zoom-out place-items-center bg-black/85 p-4"
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={t.photoUrl} alt="Complaint photo, enlarged" className="max-h-full max-w-full rounded-lg" />
+          <img src={zoom} alt="Complaint photo, enlarged" className="max-h-full max-w-full rounded-lg" />
         </div>
       )}
     </article>
   );
 }
 
-function Field({ label, value, strong, title }: { label: string; value: string; strong?: boolean; title?: string }) {
+function Field({ label, value, strong, title }: { label: string; value: React.ReactNode; strong?: boolean; title?: string }) {
   return (
     <div className="flex gap-2" title={title}>
       <dt className="w-24 shrink-0 text-slate-500 dark:text-slate-400">{label}</dt>

@@ -34,14 +34,6 @@ export function StatusBadge({ status }: { status: Status }) {
   );
 }
 
-export function SampleBadge() {
-  return (
-    <span className="rounded-full border border-dashed border-slate-400 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:border-slate-600 dark:text-slate-400">
-      Sample
-    </span>
-  );
-}
-
 export function Spinner({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg className={`animate-spin ${className}`} viewBox="0 0 24 24" fill="none" aria-hidden>

@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300" width="400" height="300">
-<rect width="400" height="300" fill="#bfdbfe"/>
-<rect y="170" width="400" height="130" fill="#a3a37a"/>
-<polygon points="120,170 280,170 400,300 0,300" fill="#4b5563"/><polygon points="196,175 204,175 210,300 190,300" fill="#e5e7eb" opacity=".5"/><ellipse cx="210" cy="245" rx="70" ry="22" fill="#1f2937"/><ellipse cx="210" cy="240" rx="58" ry="14" fill="#374151"/><circle cx="150" cy="230" r="5" fill="#6b7280"/><circle cx="270" cy="255" r="6" fill="#6b7280"/>
-<rect x="10" y="10" rx="6" width="116" height="26" fill="rgba(11,31,58,.85)"/>
-<text x="20" y="28" font-family="sans-serif" font-size="14" fill="#fff" font-weight="bold">SAMPLE · Pothole</text>
-</svg>

@@ -15,8 +15,8 @@ import {
 } from "../types";
 import { findDuplicate, nextId } from "../tickets";
 import { ACTION_RULES, PERSONAS, distanceMeters, type Action } from "../workflow";
+import { matchWard } from "../wards";
 import { matchPhotos, type Photo } from "./triage";
-import { buildSamples } from "./samples";
 
 const DATA_DIR =
   process.env.DATA_DIR || (process.env.VERCEL ? "/tmp/civiclens" : path.join(process.cwd(), "data"));
@@ -26,7 +26,7 @@ const AUDIO_DIR = path.join(DATA_DIR, "audio");
 
 const MIME_EXT: Record<string, string> = { "image/jpeg": "jpg", "image/png": "png", "image/webp": "webp" };
 const EXT_MIME: Record<string, string> = Object.fromEntries(Object.entries(MIME_EXT).map(([m, e]) => [e, m]));
-const PHOTO_ID = /^(CL|DEMO)-\d+(-officer)?$/;
+const PHOTO_ID = /^CL-\d+(-officer|-r\d+)?$/; // citizen photo, officer photo, merged extra report
 
 const SYSTEM: Actor = { role: "system", name: "CivicLens" };
 const FIELD_OFFICER = PERSONAS.field_officer.name;
@@ -58,6 +58,9 @@ function normalize(raw: Ticket & { status: string }): Ticket {
     citizenName: raw.citizenName ?? "Citizen",
     assignedTo: raw.assignedTo ?? FIELD_OFFICER,
     verification: raw.verification ?? null,
+    wardNo: raw.wardNo !== undefined ? raw.wardNo : (matchWard(raw.area ?? "", raw.lat ?? null, raw.lng ?? null)?.number ?? null),
+    reportsCount: raw.reportsCount ?? 1 + (raw.reports?.length ?? 0),
+    reports: raw.reports ?? [],
   };
 }
 
@@ -102,7 +105,7 @@ export function decodeAudio(dataUrl: string): Photo | null {
 }
 
 export async function readAudio(id: string): Promise<Photo | null> {
-  if (!/^CL-\d+$/.test(id)) return null;
+  if (!/^CL-\d+(-r\d+)?$/.test(id)) return null;
   for (const [ext, mime] of Object.entries(AUDIO_EXT_MIME)) {
     try {
       return { mime, bytes: await fs.readFile(path.join(AUDIO_DIR, `${id}.${ext}`)) };
@@ -132,18 +135,62 @@ export async function readPhoto(id: string): Promise<Photo | null> {
   return null;
 }
 
-export function createTicket(input: {
+async function saveAudio(name: string, audio: Photo) {
+  await fs.mkdir(AUDIO_DIR, { recursive: true });
+  await fs.writeFile(path.join(AUDIO_DIR, `${name}.${AUDIO_EXT[audio.mime]}`), audio.bytes);
+}
+
+export interface NewComplaint {
   text: string;
   area: string;
   lat: number | null;
   lng: number | null;
   triage: TriageResult;
+  triageMs: number;
   photo: Photo | null;
   voice: { audio: Photo; durationSec: number; language: string; englishTranslation: string } | null;
-}): Promise<Ticket> {
+}
+
+/**
+ * Saves a complaint. If an open ticket already covers the same issue (same category + ward, within 7 days),
+ * the report is merged into it and its "reported by N citizens" count goes up, instead of creating a new ticket.
+ */
+export function createTicket(input: NewComplaint): Promise<{ ticket: Ticket; merged: boolean }> {
   return locked(async () => {
     const all = await readAll();
-    const id = nextId(all.filter((t) => !t.sample));
+    const wardNo = matchWard(input.area, input.lat, input.lng)?.number ?? null;
+    const now = new Date().toISOString();
+    const citizen = actorFor("citizen");
+
+    const original = findDuplicate(all, { category: input.triage.category, wardNo, area: input.area, lat: input.lat, lng: input.lng });
+    if (original) {
+      const n = original.reports.length + 2; // file suffix: -r2, -r3, …
+      if (input.photo) await savePhoto(`${original.id}-r${n}`, input.photo);
+      if (input.voice) await saveAudio(`${original.id}-r${n}`, input.voice.audio);
+      original.reports.push({
+        at: now,
+        text: input.text,
+        area: input.area,
+        lat: input.lat,
+        lng: input.lng,
+        photoUrl: input.photo ? `/api/photos/${original.id}-r${n}` : null,
+        audioUrl: input.voice ? `/api/audio/${original.id}-r${n}` : null,
+      });
+      original.reportsCount = 1 + original.reports.length;
+      original.timeline.push({
+        status: original.status,
+        by: citizen,
+        at: now,
+        event: "extra_report",
+        note: `Same issue reported by another citizen. Now reported by ${original.reportsCount} citizens.${
+          original.reportsCount === 3 ? " Priority boosted." : ""
+        }`,
+      });
+      await writeAll(all);
+      return { ticket: original, merged: true };
+    }
+
+    const id = nextId(all);
     let photoUrl: string | null = null;
     if (input.photo) {
       await savePhoto(id, input.photo);
@@ -151,8 +198,7 @@ export function createTicket(input: {
     }
     let voice: VoiceNote | null = null;
     if (input.voice) {
-      await fs.mkdir(AUDIO_DIR, { recursive: true });
-      await fs.writeFile(path.join(AUDIO_DIR, `${id}.${AUDIO_EXT[input.voice.audio.mime]}`), input.voice.audio.bytes);
+      await saveAudio(id, input.voice.audio);
       voice = {
         audioUrl: `/api/audio/${id}`,
         durationSec: input.voice.durationSec,
@@ -160,9 +206,6 @@ export function createTicket(input: {
         englishTranslation: input.voice.englishTranslation,
       };
     }
-    const dup = findDuplicate(all, input.triage.category, input.area);
-    const now = new Date().toISOString();
-    const citizen = actorFor("citizen");
     const ticket: Ticket = {
       id,
       createdAt: now,
@@ -173,23 +216,27 @@ export function createTicket(input: {
       lat: input.lat,
       lng: input.lng,
       citizenName: citizen.name,
+      wardNo,
       triage: input.triage,
+      triageMs: input.triageMs,
       status: "Assigned",
       assignedTo: FIELD_OFFICER,
-      duplicateOf: dup?.id ?? null,
+      duplicateOf: null,
       verification: null,
+      reportsCount: 1,
+      reports: [],
       timeline: [
-        { status: "Submitted", by: citizen, at: now, note: `${voice ? `Voice complaint (${voice.language}, ${voice.durationSec}s). ` : ""}AI triage: ${input.triage.severity} · ${input.triage.category}.` },
         {
-          status: "Assigned",
-          by: SYSTEM,
+          status: "Submitted",
+          by: citizen,
           at: now,
-          note: `Auto-assigned to ${FIELD_OFFICER} (${input.triage.department}).${dup ? ` Possible duplicate of #${dup.id}.` : ""}`,
+          note: `${voice ? `Voice complaint (${voice.language}, ${voice.durationSec}s). ` : ""}AI triage: ${input.triage.severity} · ${input.triage.category} in ${(input.triageMs / 1000).toFixed(1)}s.`,
         },
+        { status: "Assigned", by: SYSTEM, at: now, note: `Auto-assigned to ${FIELD_OFFICER} (${input.triage.department}).` },
       ],
     };
     await writeAll([ticket, ...all]);
-    return ticket;
+    return { ticket, merged: false };
   });
 }
 
@@ -314,26 +361,5 @@ export async function applyAction(id: string, req: ActionRequest): Promise<Ticke
     }
     await writeAll(all);
     return t;
-  });
-}
-
-// ---------------------------------------------------------------- demo samples
-
-/** Adds (or refreshes) sample tickets at every workflow stage. Real tickets are untouched. */
-export function loadSamples(): Promise<number> {
-  return locked(async () => {
-    const real = (await readAll()).filter((t) => !t.sample);
-    const samples = buildSamples();
-    await writeAll([...real, ...samples]);
-    return samples.length;
-  });
-}
-
-export function removeSamples(): Promise<number> {
-  return locked(async () => {
-    const all = await readAll();
-    const real = all.filter((t) => !t.sample);
-    await writeAll(real);
-    return all.length - real.length;
   });
 }

@@ -9,6 +9,7 @@ import { isOpen } from "@/lib/workflow";
 import RoleGate from "@/components/RoleGate";
 import { TimelineList } from "@/components/Timeline";
 import TicketCard from "@/components/TicketCard";
+import HowTo from "@/components/HowTo";
 import { Spinner } from "@/components/Badges";
 
 export default function DashboardPage() {
@@ -20,8 +21,7 @@ export default function DashboardPage() {
 }
 
 function Dashboard() {
-  const { tickets, error, refresh } = useTickets();
-  const [sampleBusy, setSampleBusy] = useState(false);
+  const { tickets, error } = useTickets();
   const [category, setCategory] = useState<Category | "">("");
   const [department, setDepartment] = useState("");
   const [severity, setSeverity] = useState<Severity | "">("");
@@ -44,35 +44,36 @@ function Dashboard() {
   const total = tickets?.length ?? 0;
   const critical = tickets?.filter((t) => t.triage.severity === "Critical" && isOpen(t.status)).length ?? 0;
   const open = tickets?.filter((t) => isOpen(t.status)).length ?? 0;
-  const hasSamples = tickets?.some((t) => t.sample) ?? false;
-
-  async function samples(method: "POST" | "DELETE") {
-    setSampleBusy(true);
-    await fetch("/api/samples", { method }).catch(() => {});
-    await refresh();
-    setSampleBusy(false);
-  }
 
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-3xl font-bold tracking-tight text-navy-900 dark:text-white">Officer dashboard</h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sorted by severity (Critical → Low), then newest first.</p>
+          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sorted by severity (Critical → Low, 🔥 boosted when 3+ citizens report), then newest first.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
-            <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-            Live
-          </span>
-          <button
-            onClick={() => samples(hasSamples ? "DELETE" : "POST")}
-            disabled={sampleBusy}
-            className="min-h-9 rounded-full border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 hover:bg-slate-100 disabled:opacity-60 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-          >
-            {sampleBusy ? "…" : hasSamples ? "Remove sample tickets" : "Load sample tickets"}
-          </button>
-        </div>
+        <span className="inline-flex items-center gap-2 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+          Live: updates automatically
+        </span>
+      </div>
+
+      <div className="mt-4">
+        <HowTo
+          id="dashboard"
+          steps={[
+            <>Every complaint in the city, most severe first. New ones appear by themselves within a few seconds.</>,
+            <>
+              Tap the <b>Critical</b> card, or use the filters, to narrow by category, department, severity or status.
+            </>,
+            <>
+              Repeat reports of the same issue (same ward, within 7 days) are merged: look for <b>👥 Reported by N citizens</b>. At 3 or more it’s <b>🔥 boosted</b> one priority level.
+            </>,
+            <>
+              Each ticket shows the photo, the <b>▶ voice clip</b>, the original text and an English summary. Tap <b>Show timeline</b> to see every action and note.
+            </>,
+          ]}
+        />
       </div>
 
       {error && (
@@ -161,11 +162,11 @@ function Dashboard() {
                     <p className="text-3xl">📭</p>
                     <p className="mt-2 font-medium text-slate-700 dark:text-slate-200">No complaints yet</p>
                     <p className="mt-1 text-sm">
-                      New complaints appear here automatically. Use <b>Load sample tickets</b> for a demo, or{" "}
+                      Complaints appear here automatically as citizens report them.{" "}
                       <Link href="/" className="font-medium text-navy-600 underline dark:text-navy-300">
-                        report one
-                      </Link>
-                      .
+                        Report one
+                      </Link>{" "}
+                      to see how it works.
                     </p>
                   </>
                 ) : (

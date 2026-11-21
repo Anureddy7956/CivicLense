@@ -31,6 +31,7 @@ export interface TimelineEntry {
   by: Actor;
   at: string; // ISO
   note: string;
+  event?: "extra_report"; // another citizen reported the same issue (status unchanged)
 }
 
 /** Exact JSON the AI returns for triage (department is normalised server-side). */
@@ -77,6 +78,17 @@ export interface VoiceNote {
   englishTranslation: string;
 }
 
+/** A later citizen report of the same issue, merged into the original ticket instead of creating a new one. */
+export interface ExtraReport {
+  at: string;
+  text: string;
+  area: string;
+  lat: number | null;
+  lng: number | null;
+  photoUrl: string | null;
+  audioUrl: string | null;
+}
+
 export interface Ticket {
   id: string; // "CL-1009"
   createdAt: string;
@@ -87,11 +99,14 @@ export interface Ticket {
   lat: number | null;
   lng: number | null;
   citizenName: string;
+  wardNo: number | null; // matched from the ward registry (demo data)
   triage: TriageResult;
+  triageMs?: number; // how long AI triage took on the server
   status: Status;
   assignedTo: string | null;
   duplicateOf: string | null;
   verification: Verification | null;
   timeline: TimelineEntry[];
-  sample?: boolean;
+  reportsCount: number; // 1 + number of merged extra reports
+  reports: ExtraReport[];
 }

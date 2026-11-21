@@ -2,9 +2,9 @@
 import type { Role, Status, Ticket } from "./types";
 
 export const PERSONAS: Record<Role, { label: string; name: string; icon: string; home: string }> = {
-  citizen: { label: "Citizen", name: "Ravi Kumar", icon: "🙋", home: "/" },
-  field_officer: { label: "Field Officer", name: "Meena R. (AE, Ward 151)", icon: "🦺", home: "/field" },
-  authority: { label: "Higher Authority", name: "Prakash S. (Executive Engineer)", icon: "🏛️", home: "/authority" },
+  citizen: { label: "Citizen", name: "Citizen", icon: "🙋", home: "/" },
+  field_officer: { label: "Field Officer", name: "Field Officer", icon: "🦺", home: "/field" },
+  authority: { label: "Higher Authority", name: "Higher Authority", icon: "🏛️", home: "/authority" },
 };
 
 export type Action = "assign" | "capture_evidence" | "verify" | "approve" | "send_back" | "reject" | "start_work" | "resolve";

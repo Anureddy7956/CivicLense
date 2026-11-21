@@ -2,12 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { compressImage, getLocation, runAction, useTickets } from "@/lib/store";
-import { PERSONAS } from "@/lib/workflow";
 import type { Ticket, VerifyOutcome } from "@/lib/types";
 import RoleGate from "@/components/RoleGate";
 import TicketCard from "@/components/TicketCard";
 import { Spinner } from "@/components/Badges";
 import { GpsCheck, MapsButton, MatchResult, Photo, PhotoPair } from "@/components/Evidence";
+import HowTo from "@/components/HowTo";
 
 export default function FieldPage() {
   return (
@@ -30,8 +30,7 @@ function FieldOfficer() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const me = PERSONAS.field_officer.name;
-  const mine = (tickets ?? []).filter((t) => t.assignedTo === me);
+  const mine = (tickets ?? []).filter((t) => t.assignedTo !== null);
   const toVerify = mine.filter((t) => t.status === "Assigned"); // server sends severity-sorted
   const workOrders = mine.filter((t) => t.status === "Approved" || t.status === "In Progress");
   const verifying = tickets?.find((t) => t.id === verifyId) ?? null;
@@ -50,7 +49,27 @@ function FieldOfficer() {
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-3xl font-bold tracking-tight text-navy-900 dark:text-white">Field work</h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{me} · tickets assigned to you, most severe first.</p>
+      <p className="mt-1 mb-4 text-sm text-slate-600 dark:text-slate-400">Tickets assigned to you, most severe first.</p>
+      <HowTo
+        id="field"
+        steps={[
+          <>
+            Tap <b>🗺️ Open in Google Maps</b> to navigate to the complaint.
+          </>,
+          <>
+            At the spot, tap <b>✅ Verify on site</b> → <b>📷 Take on-site photo</b>. Allow location so your GPS is recorded.
+          </>,
+          <>
+            Read the <b>AI match check</b> (does your photo show the same issue?) and the <b>distance warning</b> if you’re more than 200 m away.
+          </>,
+          <>
+            Choose <b>Confirmed</b>, <b>Not found</b> or <b>Duplicate</b>, write a short note and submit. Confirmed tickets go to the Higher Authority.
+          </>,
+          <>
+            After approval the ticket moves to <b>Work orders</b>: tap <b>🚧 Start work</b>, then <b>✓ Mark resolved</b> when finished.
+          </>,
+        ]}
+      />
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/60 dark:text-red-200">⚠️ {error}</p>}
 
       {tickets === null ? (

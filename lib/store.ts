@@ -5,7 +5,7 @@ import type { Role, Ticket, TriageResult, VerifyOutcome } from "./types";
 import type { Action } from "./workflow";
 
 export type SubmitResult =
-  | { ok: true; ticket: Ticket }
+  | { ok: true; ticket: Ticket; merged: boolean; triageMs: number | null }
   | { ok: false; error: string; triage?: TriageResult };
 
 async function readJson(res: Response): Promise<Record<string, unknown>> {
@@ -39,7 +39,12 @@ export async function submitComplaint(input: {
   const data = await readJson(res);
   if (res.ok && data.ticket) {
     rememberMyTicket((data.ticket as Ticket).id);
-    return { ok: true, ticket: data.ticket as Ticket };
+    return {
+      ok: true,
+      ticket: data.ticket as Ticket,
+      merged: Boolean(data.merged),
+      triageMs: typeof data.triageMs === "number" ? data.triageMs : null,
+    };
   }
   return {
     ok: false,

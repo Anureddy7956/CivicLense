@@ -1,0 +1,135 @@
+{
+  "_note": "DEMO DATA. Ward numbers, officer names, phone numbers, contractors and tenders are fictional placeholders for the hackathon demo, not real BBMP/BWSSB/BESCOM records.",
+  "wards": [
+    {
+      "number": 45,
+      "name": "Malleshwaram",
+      "aliases": ["malleshwaram", "malleswaram", "sampige road", "18th cross"],
+      "lat": 13.0031,
+      "lng": 77.5643,
+      "officers": {
+        "BBMP": { "name": "K. Ramesh", "designation": "Assistant Executive Engineer (Ward 45)", "phone": "+91 80 0000 0451" },
+        "BWSSB": { "name": "S. Lakshmi", "designation": "Assistant Engineer, BWSSB North", "phone": "+91 80 0000 0452" },
+        "BESCOM": { "name": "M. Prakash", "designation": "Assistant Engineer, BESCOM Malleshwaram", "phone": "+91 80 0000 0453" }
+      },
+      "contractor": { "name": "Northline Roadworks (demo)", "tender": "DEMO/BBMP/RD/2024-25/045", "maintenanceFrom": "2025-01-15", "maintenanceTo": "2027-01-14" }
+    },
+    {
+      "number": 92,
+      "name": "Shivajinagar",
+      "aliases": ["shivajinagar", "shivaji nagar", "commercial street", "russell market"],
+      "lat": 12.9857,
+      "lng": 77.6057,
+      "officers": {
+        "BBMP": { "name": "A. Farooq", "designation": "Assistant Executive Engineer (Ward 92)", "phone": "+91 80 0000 0921" },
+        "BWSSB": { "name": "R. Kavitha", "designation": "Assistant Engineer, BWSSB Central", "phone": "+91 80 0000 0922" },
+        "BESCOM": { "name": "J. Thomas", "designation": "Assistant Engineer, BESCOM Shivajinagar", "phone": "+91 80 0000 0923" }
+      },
+      "contractor": { "name": "Central Asphalt Co. (demo)", "tender": "DEMO/BBMP/RD/2023-24/092", "maintenanceFrom": "2023-06-01", "maintenanceTo": "2025-05-31" }
+    },
+    {
+      "number": 80,
+      "name": "Indiranagar",
+      "aliases": ["indiranagar", "indira nagar", "100 feet road", "100 ft road", "cmh road", "ulsoor", "halasuru"],
+      "lat": 12.9719,
+      "lng": 77.6412,
+      "officers": {
+        "BBMP": { "name": "P. Nandini", "designation": "Assistant Executive Engineer (Ward 80)", "phone": "+91 80 0000 0801" },
+        "BWSSB": { "name": "G. Mohan", "designation": "Assistant Engineer, BWSSB East", "phone": "+91 80 0000 0802" },
+        "BESCOM": { "name": "V. Shetty", "designation": "Assistant Engineer, BESCOM Indiranagar", "phone": "+91 80 0000 0803" }
+      },
+      "contractor": { "name": "Eastgate Infra Works (demo)", "tender": "DEMO/BBMP/RD/2025-26/080", "maintenanceFrom": "2025-08-01", "maintenanceTo": "2028-07-31" }
+    },
+    {
+      "number": 99,
+      "name": "Rajajinagar",
+      "aliases": ["rajajinagar", "rajaji nagar", "dr rajkumar road", "west of chord road"],
+      "lat": 12.9915,
+      "lng": 77.5547,
+      "officers": {
+        "BBMP": { "name": "H. Manjunath", "designation": "Assistant Executive Engineer (Ward 99)", "phone": "+91 80 0000 0991" },
+        "BWSSB": { "name": "T. Rekha", "designation": "Assistant Engineer, BWSSB West", "phone": "+91 80 0000 0992" },
+        "BESCOM": { "name": "B. Girish", "designation": "Assistant Engineer, BESCOM Rajajinagar", "phone": "+91 80 0000 0993" }
+      },
+      "contractor": { "name": "Westside Paving (demo)", "tender": "DEMO/BBMP/RD/2024-25/099", "maintenanceFrom": "2024-11-01", "maintenanceTo": "2026-10-31" }
+    },
+    {
+      "number": 151,
+      "name": "Koramangala",
+      "aliases": ["koramangala", "kormangala", "forum mall", "sony signal", "80 feet road"],
+      "lat": 12.9352,
+      "lng": 77.6245,
+      "officers": {
+        "BBMP": { "name": "S. Arvind", "designation": "Assistant Executive Engineer (Ward 151)", "phone": "+91 80 0000 1511" },
+        "BWSSB": { "name": "N. Divya", "designation": "Assistant Engineer, BWSSB South-East", "phone": "+91 80 0000 1512" },
+        "BESCOM": { "name": "C. Naveen", "designation": "Assistant Engineer, BESCOM Koramangala", "phone": "+91 80 0000 1513" }
+      },
+      "contractor": { "name": "Southern Surface Works (demo)", "tender": "DEMO/BBMP/RD/2025-26/151", "maintenanceFrom": "2025-04-01", "maintenanceTo": "2027-03-31" }
+    },
+    {
+      "number": 153,
+      "name": "Jayanagar",
+      "aliases": ["jayanagar", "jaya nagar", "jayanagar 4th block", "south end circle"],
+      "lat": 12.925,
+      "lng": 77.5838,
+      "officers": {
+        "BBMP": { "name": "L. Shankar", "designation": "Assistant Executive Engineer (Ward 153)", "phone": "+91 80 0000 1531" },
+        "BWSSB": { "name": "U. Pooja", "designation": "Assistant Engineer, BWSSB South", "phone": "+91 80 0000 1532" },
+        "BESCOM": { "name": "D. Kiran", "designation": "Assistant Engineer, BESCOM Jayanagar", "phone": "+91 80 0000 1533" }
+      },
+      "contractor": { "name": "Lalbagh Roadcare (demo)", "tender": "DEMO/BBMP/RD/2022-23/153", "maintenanceFrom": "2022-12-01", "maintenanceTo": "2025-11-30" }
+    },
+    {
+      "number": 154,
+      "name": "Basavanagudi",
+      "aliases": ["basavanagudi", "bull temple road", "gandhi bazaar", "dvg road"],
+      "lat": 12.9422,
+      "lng": 77.5755,
+      "officers": {
+        "BBMP": { "name": "V. Raghavendra", "designation": "Assistant Executive Engineer (Ward 154)", "phone": "+91 80 0000 1541" },
+        "BWSSB": { "name": "K. Sowmya", "designation": "Assistant Engineer, BWSSB South", "phone": "+91 80 0000 1542" },
+        "BESCOM": { "name": "S. Harish", "designation": "Assistant Engineer, BESCOM Basavanagudi", "phone": "+91 80 0000 1543" }
+      },
+      "contractor": { "name": "Heritage Lane Builders (demo)", "tender": "DEMO/BBMP/RD/2025-26/154", "maintenanceFrom": "2025-09-15", "maintenanceTo": "2027-09-14" }
+    },
+    {
+      "number": 174,
+      "name": "HSR Layout",
+      "aliases": ["hsr layout", "hsr", "agara", "27th main"],
+      "lat": 12.9121,
+      "lng": 77.6446,
+      "officers": {
+        "BBMP": { "name": "R. Deepak", "designation": "Assistant Executive Engineer (Ward 174)", "phone": "+91 80 0000 1741" },
+        "BWSSB": { "name": "M. Anitha", "designation": "Assistant Engineer, BWSSB South-East", "phone": "+91 80 0000 1742" },
+        "BESCOM": { "name": "P. Srinivas", "designation": "Assistant Engineer, BESCOM HSR Layout", "phone": "+91 80 0000 1743" }
+      },
+      "contractor": { "name": "Sector Grid Infra (demo)", "tender": "DEMO/BBMP/RD/2023-24/174", "maintenanceFrom": "2024-02-01", "maintenanceTo": "2026-01-31" }
+    },
+    {
+      "number": 176,
+      "name": "BTM Layout",
+      "aliases": ["btm layout", "btm", "madiwala", "udupi garden"],
+      "lat": 12.9166,
+      "lng": 77.6101,
+      "officers": {
+        "BBMP": { "name": "G. Vinay", "designation": "Assistant Executive Engineer (Ward 176)", "phone": "+91 80 0000 1761" },
+        "BWSSB": { "name": "A. Shilpa", "designation": "Assistant Engineer, BWSSB South", "phone": "+91 80 0000 1762" },
+        "BESCOM": { "name": "N. Rajesh", "designation": "Assistant Engineer, BESCOM BTM Layout", "phone": "+91 80 0000 1763" }
+      },
+      "contractor": { "name": "Ring Road Surfacing (demo)", "tender": "DEMO/BBMP/RD/2025-26/176", "maintenanceFrom": "2025-06-01", "maintenanceTo": "2027-05-31" }
+    },
+    {
+      "number": 150,
+      "name": "Bellandur",
+      "aliases": ["bellandur", "outer ring road", "orr", "ecospace", "sarjapur road"],
+      "lat": 12.926,
+      "lng": 77.6762,
+      "officers": {
+        "BBMP": { "name": "T. Mahesh", "designation": "Assistant Executive Engineer (Ward 150)", "phone": "+91 80 0000 1501" },
+        "BWSSB": { "name": "E. Priya", "designation": "Assistant Engineer, BWSSB South-East", "phone": "+91 80 0000 1502" },
+        "BESCOM": { "name": "K. Sunil", "designation": "Assistant Engineer, BESCOM Bellandur", "phone": "+91 80 0000 1503" }
+      },
+      "contractor": { "name": "Lakeside Highways (demo)", "tender": "DEMO/BBMP/RD/2024-25/150", "maintenanceFrom": "2024-07-01", "maintenanceTo": "2026-06-30" }
+    }
+  ]
+}

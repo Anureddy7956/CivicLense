@@ -12,7 +12,7 @@ export function StatusStepper({ ticket }: { ticket: Ticket }) {
     ? Math.max(...ticket.timeline.filter((e) => e.status !== "Rejected").map((e) => STEPS.indexOf(e.status)), 0)
     : STEPS.indexOf(ticket.status);
   const steps = rejected ? [...STEPS.slice(0, reachedIdx + 1), "Rejected" as const] : STEPS;
-  const lastAt = (s: string) => [...ticket.timeline].reverse().find((e) => e.status === s)?.at;
+  const lastAt = (s: string) => [...ticket.timeline].reverse().find((e) => e.status === s && !e.event)?.at;
 
   return (
     <ol className="relative space-y-0" aria-label="Ticket progress">
@@ -66,11 +66,11 @@ export function TimelineList({ ticket }: { ticket: Ticket }) {
       {[...ticket.timeline].reverse().map((e, i) => (
         <li key={i} className="flex gap-3 text-sm">
           <span className="mt-0.5 text-base" aria-hidden>
-            {ROLE_ICON[e.by.role] ?? "•"}
+            {e.event === "extra_report" ? "👥" : (ROLE_ICON[e.by.role] ?? "•")}
           </span>
           <div className="min-w-0">
             <p className="font-medium text-slate-900 dark:text-slate-100">
-              {STATUS_LABEL[e.status]} <span className="font-normal text-slate-500 dark:text-slate-400">· {fmt(e.at)}</span>
+              {e.event === "extra_report" ? "Reported again" : STATUS_LABEL[e.status]} <span className="font-normal text-slate-500 dark:text-slate-400">· {fmt(e.at)}</span>
             </p>
             <p className="text-xs text-slate-500 dark:text-slate-400">by {e.by.name}</p>
             {e.note && <p className="mt-0.5 break-words text-slate-700 dark:text-slate-300">{e.note}</p>}

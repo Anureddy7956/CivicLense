@@ -62,15 +62,17 @@ export async function POST(request: Request) {
   }
 
   try {
+    const started = performance.now();
     const triage = await triageComplaint(text, photo);
+    const triageMs = Math.round(performance.now() - started);
     if (!triage.is_valid_complaint) {
       return Response.json(
         { error: "This doesn't look like a civic complaint.", triage },
         { status: 422 },
       );
     }
-    const ticket = await createTicket({ text, area, lat, lng, triage, photo, voice });
-    return Response.json({ ticket }, { status: 201 });
+    const { ticket, merged } = await createTicket({ text, area, lat, lng, triage, triageMs, photo, voice });
+    return Response.json({ ticket, merged, triageMs }, { status: merged ? 200 : 201 });
   } catch (err) {
     if (err instanceof TriageError) return Response.json({ error: err.message }, { status: err.status });
     console.error("[tickets] save failed:", err);

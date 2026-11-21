@@ -9,6 +9,7 @@ import TicketCard from "@/components/TicketCard";
 import { Spinner, StatusBadge } from "@/components/Badges";
 import { AccountabilityBox, GpsCheck, MapsButton, MatchResult, PhotoPair } from "@/components/Evidence";
 import { TimelineList } from "@/components/Timeline";
+import HowTo from "@/components/HowTo";
 
 export default function AuthorityPage() {
   return (
@@ -41,7 +42,22 @@ function Authority() {
   return (
     <div className="mx-auto max-w-3xl">
       <h1 className="text-3xl font-bold tracking-tight text-navy-900 dark:text-white">Approvals</h1>
-      <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Field-verified tickets waiting for your decision, most severe first.</p>
+      <p className="mt-1 mb-4 text-sm text-slate-600 dark:text-slate-400">Field-verified tickets waiting for your decision, most severe first.</p>
+      <HowTo
+        id="authority"
+        steps={[
+          <>
+            Tickets confirmed on site by a field officer appear under <b>Awaiting approval</b>.
+          </>,
+          <>
+            Compare the <b>citizen photo</b> and <b>officer photo</b>, the <b>AI match check</b>, the GPS distance and the officer’s note. The <b>Accountability</b> box lists any red flags.
+          </>,
+          <>
+            Write a <b>reason</b>, then choose <b>Approve & dispatch</b>, <b>Send back for re-verification</b> or <b>Reject</b>.
+          </>,
+          <>Tickets not yet verified can’t be approved. They’re listed at the bottom as view-only.</>,
+        ]}
+      />
       {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/60 dark:text-red-200">⚠️ {error}</p>}
 
       {tickets === null ? (

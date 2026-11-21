@@ -10,9 +10,11 @@ AI triage for Bengaluru citizen complaints. Citizens report in any language (Eng
 | 🙋 Citizen | `/` Report, `/my` My Complaints | Reports with GPS + photo; follows progress on a stepper |
 | 🦺 Field Officer | `/field` | Opens site in Google Maps, takes on-site photo + GPS, sees **AI match check** and **>200 m warning**, marks Confirmed / Not found / Duplicate; later starts work and resolves |
 | 🏛️ Higher Authority | `/authority` | Reviews field-verified tickets (both photos, AI match, officer note, accountability box); Approve / Send back / Reject with a required reason |
-| Officer + Authority | `/dashboard` | Everything, filters, full timelines, load/remove sample tickets |
+| Officer + Authority | `/dashboard` | Everything, filters, full timelines, voice playback |
 
-Every change is appended to the ticket's `timeline` (status, by, time, note). The server enforces who may do what from which status. Demo deep links: `/field?role=field_officer`, `/authority?role=authority`.
+**Accountability** (inspired by structured pothole reporting): every ticket is matched to a ward from `lib/wards.json` (**demo data**: 10 wards with fictional officers, phones, road contractors, tenders and maintenance periods) by area text, or GPS when the text doesn't match. Each ticket shows the ward, responsible officer and, for roads, contractor + tender + "within maintenance period: yes/no". **Generate formal complaint** has AI draft a ready-to-send email (Copy / open in mail app). Tickets show "Triaged in X.X seconds". Repeat reports (same category + ward within 7 days, and within 500 m if both have GPS) are merged into the original as "Reported by N citizens"; at 3+ the ticket is boosted one priority level.
+
+Every change is appended to the ticket's `timeline` (status, by, time, note). The server enforces who may do what from which status. Each page has a short **💡 How to use** guide. Role links: `/field?role=field_officer`, `/authority?role=authority`.
 
 ## File structure
 ```
@@ -24,7 +26,9 @@ app/
   api/tickets/route.ts  GET list · POST complaint → AI triage → save
   api/tickets/[id]/     PATCH status
   api/tickets/[id]/actions/  POST workflow actions (verify, approve, …)
-  api/samples/          POST load / DELETE remove sample tickets
+  api/tickets/[id]/complaint/  POST AI-drafted formal complaint email
+  api/transcribe/       POST voice clip → transcript + English translation
+  api/audio/[id]/       GET a ticket's voice clip
   api/photos/[id]/      GET a ticket's photo
   field/ authority/ my/ Role pages
 components/
