@@ -140,3 +140,6 @@ Tickets are saved in `data/` (git-ignored). Delete that folder to start fresh.
 |---|---|
 | Anusha S (team leader) | [@Anureddy7956](https://github.com/Anureddy7956) |
 | D N Harshitha | [@098harshitha](https://github.com/098harshitha) |
+
+### contributors
+- Harshitha
